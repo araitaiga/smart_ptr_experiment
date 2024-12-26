@@ -2,81 +2,83 @@
 #include <memory>
 #include <vector>
 
-#include "stop_watch.h"
+// 親クラスのthisポインタを, メンバオブジェクトのクラス（サブクラス）に渡す場合は, サブクラス側で親クラスのポインタをweak_ptrで受けないとダメ
+// そうしないと, 親クラスのshared_ptrの参照カウントが増えてしまい, 両クラスのメモリが開放されない
 
-class Parent;
-class Child;
-
-class Parent
+class ChildShared;
+class ChildWeak;
+class Parent : public std::enable_shared_from_this<Parent>
 {
 public:
-  std::shared_ptr<Child> child_ptr;
-  ~Parent() { std::cout << "Parent Destructor" << std::endl; }
-};
+  Parent() { std::cout << "Parent Constructor" << std::endl; }
+  void configure()
+  {
+    // shared_childshared_ptr = std::make_shared<ChildShared>(shared_from_this(), "shared"); // NG
+    unique_childshared_ptr = std::make_unique<ChildShared>(shared_from_this(), "unique");  // NG
+    // shared_childweak_ptr = std::make_shared<ChildWeak>(shared_from_this(), "shared"); // OK
+  }
 
-class Child
-{
-public:
-  // 循環参照!!! shared_ptr でなく weak_ptr を使うべき
-  std::shared_ptr<Parent> parent_ptr;
-  ~Child() { std::cout << "Child Destructor" << std::endl; }
-};
-
-class Parent2;
-class Child2;
-class Parent2 : public std::enable_shared_from_this<Parent2>
-{
-public:
-  Parent2() { std::cout << "Parent2 Constructor" << std::endl; }
-  void configure() { child_ptr = std::make_shared<Child2>(shared_from_this()); }
-
-  void chat() { std::cout << "Parent2 chat" << std::endl; }
-  ~Parent2() { std::cout << "Parent2 Destructor" << std::endl; }
+  void chat() { std::cout << "Parent chat" << std::endl; }
+  ~Parent() { std::cout << "[Parent Destructor!!!]" << std::endl; }
 
 private:
-  std::shared_ptr<Child2> child_ptr;
+  ////////////////////////////////////
+  // 一番ダメ
+  std::shared_ptr<ChildShared> shared_childshared_ptr;
+  ////////////////////////////////////
+
+  ////////////////////////////////////
+  std::unique_ptr<ChildShared> unique_childshared_ptr;
+  // unique_ptr でサブクラスを管理しても両者のデストラクタが呼ばれない!!! サブクラス側で親クラスのポインタをweak_ptrで受けないとダメ
+  // unique_child_ptr内でParent2の参照カウントが増えるため, Parent2のデストラクタが呼ばれず, unique_ptrのデストラクタも呼ばれないっぽい. するとChild2が開放されないため, Parent2の参照カウントが減らない
+  ////////////////////////////////////
+
+  // 唯一OK
+  std::shared_ptr<ChildWeak> shared_childweak_ptr;
 };
 
-class Child2
+class ChildShared
 {
 public:
-  // 循環参照!!! shared_ptr でなく weak_ptr を使うべき
-  // Child2(std::shared_ptr<Parent2> parent) : parent_ptr(parent)
-  // {
-  //   std::cout << "Child2 Constructor" << std::endl;
-  // }
-  Child2(std::weak_ptr<Parent2> parent) : parent_ptr(parent)
+  ChildShared(std::shared_ptr<Parent> parent, const std::string & doc)
+  : parent_ptr(parent), doc(doc)
   {
-    std::cout << "Child2 Constructor" << std::endl;
+    std::cout << "ChildShared Constructor " << doc << std::endl;
+    parent_ptr->chat();
+  }
+
+  ~ChildShared() { std::cout << "[ChildShared Destructor!!!] " << doc << std::endl; }
+
+private:
+  // 循環参照!!! Destructorが呼ばれないので, shared_ptrでなく weak_ptrを使うべき
+  std::shared_ptr<Parent> parent_ptr;
+  std::string doc;
+};
+
+class ChildWeak
+{
+public:
+  ChildWeak(std::shared_ptr<Parent> parent, const std::string & doc) : parent_ptr(parent), doc(doc)
+  {
+    std::cout << "ChildWeak Constructor " << doc << std::endl;
     parent_ptr.lock()->chat();
   }
-  ~Child2() { std::cout << "Child2 Destructor" << std::endl; }
+
+  ~ChildWeak() { std::cout << "ChildWeak Destructor!!! " << doc << std::endl; }
 
 private:
-  // 循環参照!!! shared_ptr でなく weak_ptr を使うべき
-  // std::shared_ptr<Parent2> parent_ptr;
-
-  std::weak_ptr<Parent2> parent_ptr;
+  std::weak_ptr<Parent> parent_ptr;
+  std::string doc;
 };
 
 int main()
 {
-  // 互いのshared_ptrが参照を持ち合っているため、メモリが解放されない
+  // 循環参照が発生する場合がある
   {
     std::cout << "=============[weak_ptr test]=============" << std::endl;
     auto parent = std::make_shared<Parent>();
-    auto child = std::make_shared<Child>();
-    parent->child_ptr = child;
-    child->parent_ptr = parent;
-  }
-  std::cout << "=============[memories are not released]=============" << std::endl;
-
-  // Chile2はParent2のweak_ptrを持つため、循環参照が解消される
-  {
-    std::cout << "=============[weak_ptr test2]=============" << std::endl;
-    auto parent = std::make_shared<Parent2>();
     parent->configure();
   }
-  std::cout << "=============[call destractor]=============" << std::endl;
+  std::cout << "=============[finish]=============" << std::endl;
   return 0;
 }
