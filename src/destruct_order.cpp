@@ -2,6 +2,8 @@
 #include <memory>
 #include <vector>
 
+// メンバ変数のshared_ptrを, サブクラスがshared_ptrで受けても正しくリソースが解放される
+
 class ChildShared;
 class ChildWeak;
 class Parent
