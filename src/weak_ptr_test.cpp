@@ -16,6 +16,7 @@ public:
     // shared_childshared_ptr = std::make_shared<ChildShared>(shared_from_this(), "shared"); // NG
     unique_childshared_ptr = std::make_unique<ChildShared>(shared_from_this(), "unique");  // NG
     // shared_childweak_ptr = std::make_shared<ChildWeak>(shared_from_this(), "shared"); // OK
+    // unique_childweak_ptr = std::make_unique<ChildWeak>(shared_from_this(), "unique");  // OK
   }
 
   void chat() { std::cout << "Parent chat" << std::endl; }
@@ -33,8 +34,9 @@ private:
   // unique_child_ptr内でParent2の参照カウントが増えるため, Parent2のデストラクタが呼ばれず, unique_ptrのデストラクタも呼ばれないっぽい. するとChild2が開放されないため, Parent2の参照カウントが減らない
   ////////////////////////////////////
 
-  // 唯一OK
+  // OK
   std::shared_ptr<ChildWeak> shared_childweak_ptr;
+  std::unique_ptr<ChildWeak> unique_childweak_ptr;  // OK
 };
 
 class ChildShared
@@ -64,7 +66,7 @@ public:
     parent_ptr.lock()->chat();
   }
 
-  ~ChildWeak() { std::cout << "ChildWeak Destructor!!! " << doc << std::endl; }
+  ~ChildWeak() { std::cout << "[ChildWeak Destructor!!!] " << doc << std::endl; }
 
 private:
   std::weak_ptr<Parent> parent_ptr;
