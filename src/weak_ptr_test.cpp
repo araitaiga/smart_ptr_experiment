@@ -31,7 +31,8 @@ private:
   ////////////////////////////////////
   std::unique_ptr<ChildShared> unique_childshared_ptr;
   // unique_ptr でサブクラスを管理しても両者のデストラクタが呼ばれない!!! サブクラス側で親クラスのポインタをweak_ptrで受けないとダメ
-  // unique_child_ptr内でParent2の参照カウントが増えるため, Parent2のデストラクタが呼ばれず, unique_ptrのデストラクタも呼ばれないっぽい. するとChild2が開放されないため, Parent2の参照カウントが減らない
+  // main処理中にParentをデストラクトしようとする --> ChildShared内のParent参照カウントが残っているため, Parentのデストラクタが呼ばれない --> ChildSharedのデストラクタも呼ばれない(unique管理, shared管理によらない) --> Parentの参照カウントが減らない
+  // 重要なのは, Parentの参照カウントを保持しているメンバが, Parentのデストラクタで解放されようとしていること. すると両者とも解放できなくなる
   ////////////////////////////////////
 
   // OK
@@ -39,6 +40,7 @@ private:
   std::unique_ptr<ChildWeak> unique_childweak_ptr;  // OK
 };
 
+// NG!!!
 class ChildShared
 {
 public:

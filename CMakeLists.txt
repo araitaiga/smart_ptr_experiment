@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD 17)
 # src fileのリストを変数に格納
 set(SRC_LIST
   src/weak_ptr_test.cpp
+  src/destruct_order.cpp
 )
 
 include_directories(include)
